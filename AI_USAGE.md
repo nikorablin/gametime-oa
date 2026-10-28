@@ -54,7 +54,7 @@ I required the README to evolve with every PR rather than being written only at 
 
 ### Choosing a UI library deliberately
 
-Before starting the web checkout, I chose HeroUI v3 to reduce time spent building standard accessible controls. I asked for the dependency to be isolated in its own PR so the library choice and package impact could be reviewed separately from page implementation. The assistant checked the current official installation guidance against the repository's React and Tailwind versions, then limited the change to the two required packages, stylesheet setup, and documentation. This keeps the next UI diff focused on product behavior rather than dependency churn.
+Before starting the web checkout, I chose HeroUI v3 to reduce time spent building standard accessible controls and Lucide React for a consistent icon set. I asked for these dependencies to be isolated in their own PR so the library choices and package impact could be reviewed separately from page implementation. The assistant checked the current official installation guidance against the repository's React and Tailwind versions, confirmed that Lucide supports named tree-shakable React imports, then limited the change to the required packages, stylesheet setup, and documentation. This keeps the next UI diff focused on product behavior rather than dependency churn.
 
 ## What the assistant has contributed
 
