@@ -19,6 +19,19 @@ export class CheckoutClientError extends Error {
   }
 }
 
+export function useCreateCheckout() {
+  return useMutation({
+    mutationFn: async (listingId: string) =>
+      readCheckoutResponse(
+        await fetch("/api/checkout-sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingId, surface: "web" }),
+        }),
+      ),
+  });
+}
+
 async function readCheckoutResponse(response: Response) {
   const body = (await response.json()) as CheckoutView | ErrorBody;
   if (!response.ok) {

@@ -60,7 +60,7 @@ The prototype uses HeroUI v3 as its component library and Lucide React for icons
 
 HeroUI was chosen to speed up construction of accessible, consistent checkout controls while leaving page composition and checkout-specific interaction design in the application. Lucide supplies a consistent SVG icon set and supports named, tree-shakable imports. UI code imports individual icons, treats decorative icons as hidden from assistive technology, and gives meaningful standalone icons accessible labels.
 
-TanStack Query owns client-side server-state synchronization after hydration. The request-time Server Component still reads the checkout service directly and passes its snapshot as `initialData`, so event, seat, price, expiration, and recovery context are present in HTML before JavaScript runs. The query polls only while a session is actionable and mutations replace the cached snapshot with the backend response.
+TanStack Query owns client-side server-state synchronization after hydration. The request-time Server Component still reads the checkout service directly and passes its snapshot as `initialData`, so event, seat, price, expiration, and recovery context are present in HTML before JavaScript runs. The query polls only while a session is actionable, and typed mutations centralize creation, price acceptance, and completion behavior. Creation navigates to the newly returned token without caching it under the selected listing.
 
 ## API
 

@@ -3,30 +3,16 @@
 import { Button } from "@heroui/react";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import type { CheckoutView } from "@/lib/checkout/types";
+import { useCreateCheckout } from "@/lib/checkout/client";
 
 export function CreateCheckoutButton({ listingId }: { listingId: string }) {
   const router = useRouter();
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string>();
+  const createCheckout = useCreateCheckout();
 
-  async function createCheckout() {
-    setIsCreating(true);
-    setError(undefined);
-    try {
-      const response = await fetch("/api/checkout-sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingId, surface: "web" }),
-      });
-      if (!response.ok) throw new Error("Checkout could not be started.");
-      const session = (await response.json()) as CheckoutView;
-      router.push(session.links.web);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Checkout could not be started.");
-      setIsCreating(false);
-    }
+  function startCheckout() {
+    createCheckout.mutate(listingId, {
+      onSuccess: (session) => router.push(session.links.web),
+    });
   }
 
   return (
@@ -35,15 +21,15 @@ export function CreateCheckoutButton({ listingId }: { listingId: string }) {
         variant="primary"
         size="lg"
         fullWidth
-        isDisabled={isCreating}
-        onPress={createCheckout}
+        isDisabled={createCheckout.isPending}
+        onPress={startCheckout}
       >
-        {isCreating ? "Reserving your tickets…" : "Continue to checkout"}
-        {!isCreating && <ArrowRight aria-hidden="true" className="size-4" />}
+        {createCheckout.isPending ? "Reserving your tickets…" : "Continue to checkout"}
+        {!createCheckout.isPending && <ArrowRight aria-hidden="true" className="size-4" />}
       </Button>
-      {error && (
+      {createCheckout.error && (
         <p role="alert" className="text-center text-sm font-medium text-red-700">
-          {error} Try again.
+          {createCheckout.error.message} Try again.
         </p>
       )}
     </div>

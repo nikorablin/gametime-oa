@@ -64,6 +64,10 @@ While reviewing the web checkout, I asked whether TanStack Query was a better fi
 
 After the query refactor, I reviewed the remaining `useEffect` and confirmed that it existed only to synchronize a visible countdown with wall-clock time. I asked for that external synchronization to be extracted into a named `useCountdown` hook and added a repository rule to avoid effects for derived data, event handling, or API state. This keeps feature components declarative while still allowing effects when an external clock or browser API genuinely requires one.
 
+### Applying the API boundary consistently
+
+I noticed that session creation still used native `fetch` directly even after other checkout commands moved behind TanStack Query. I asked whether that inconsistency was justified. Although creation does not have an existing cache entry to update, I chose to model it as a query mutation so response parsing, typed errors, pending state, and retry policy remain centralized. The button now owns only user interaction and navigation to the returned resume token.
+
 ## What the assistant has contributed
 
 The assistant has helped with:
