@@ -4,6 +4,7 @@ import { Alert, Card, Chip } from "@heroui/react";
 import { AlertTriangle, CalendarDays, CheckCircle2, CircleX, MapPin, ShieldCheck, Ticket } from "lucide-react";
 import Link from "next/link";
 import { Brand } from "@/app/components/brand";
+import { ReviewerDrawer } from "@/app/components/reviewer-drawer";
 import { useCheckoutSession } from "@/lib/checkout/client";
 import { formatCurrency, formatEventDate } from "@/lib/checkout/format";
 import type { CheckoutView as CheckoutViewModel } from "@/lib/checkout/types";
@@ -38,7 +39,7 @@ function StatusAlert({ session }: { session: CheckoutViewModel }) {
 }
 
 export function CheckoutView({ token, initialSession }: { token: string; initialSession: CheckoutViewModel }) {
-  const { data: session } = useCheckoutSession(token, initialSession);
+  const { data: session } = useCheckoutSession(token, initialSession, "web");
   const displayTotal = session.listing.pendingTotal ?? session.listing.total;
 
   return (
@@ -105,6 +106,7 @@ export function CheckoutView({ token, initialSession }: { token: string; initial
             </Card.Footer>
           </Card>
         </div>
+        <ReviewerDrawer token={token} session={session} />
       </main>
     </div>
   );

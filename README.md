@@ -2,7 +2,7 @@
 
 A proof-of-concept for carrying a time-sensitive ticket checkout across web and mobile without creating duplicate orders, accepting stale prices, or treating an expired hold like a normal saved cart.
 
-This branch contains the checkout session domain model, HTTP API, event listing, and server-rendered web checkout. A dedicated mobile deep-link surface will be added in a subsequent PR.
+This branch contains the checkout session domain model, HTTP API, event listing, server-rendered web checkout, and an app-like mobile deep-link surface backed by the same session.
 
 See [AI_USAGE.md](./AI_USAGE.md) for how AI is being used as part of the planning, implementation, and review process.
 
@@ -28,6 +28,14 @@ npm run dev
 
 The server is available at [http://localhost:3000](http://localhost:3000). Open the home page, choose the seeded listing, and continue to create a ten-minute checkout session.
 
+To demonstrate continuity:
+
+1. Start checkout on the web route.
+2. Copy the mobile resume link and open it in a second window or narrow viewport.
+3. Expand **Prototype controls** on either surface and raise the price or expire inventory.
+4. Watch the other surface reconcile to the same state through background polling.
+5. Complete on either surface; both converge on the same order.
+
 Other verification commands:
 
 ```bash
@@ -47,6 +55,8 @@ npm run build
 - JSON endpoints for creation, resume, price acceptance, and completion.
 - Prototype-only endpoints for forcing price and expiration scenarios.
 - A fan-facing event page and request-time server-rendered web checkout.
+- A request-time `/m/checkout/{resumeToken}` route with an app-like mobile layout and sticky recovery actions.
+- Collapsible prototype controls for simulating a price increase or inventory expiration.
 - Explicit active, repricing, expired, completed, and invalid-link checkout views.
 - An in-memory TanStack Query client cache for polling and mutations after hydration.
 - Deterministic unit tests using an injected clock.
@@ -124,7 +134,7 @@ Creating a session produces web and mobile paths containing the same opaque resu
 /m/checkout/{resumeToken}
 ```
 
-The token is deliberately separate from the internal session ID. Analytics events use the internal ID so the bearer credential is not logged. The web route is implemented now; the app-like mobile route remains a subsequent PR.
+The token is deliberately separate from the internal session ID. Analytics events use the internal ID so the bearer credential is not logged. Web and mobile read the same token-keyed query and backend snapshot, while requests retain their `web` or `mobile` surface for instrumentation. Background polls are not counted as fan resumes.
 
 ## Stale inventory, price changes, and duplicate completion
 
@@ -150,6 +160,7 @@ Completion is serialized per session. The first valid request creates an order a
 - Route Handlers are public and the demo mutation endpoints have no production-grade authorization or environment gate.
 - UI libraries add bundle and design-system coupling; checkout pages should use named HeroUI and Lucide imports and keep domain behavior outside presentation components.
 - TanStack Query is an in-memory presentation cache, not checkout authority. It is not persisted, and every mutation is revalidated by the backend.
+- The mobile experience is a responsive web simulation of an app deep link, not a native application or operating-system universal-link integration.
 - No payment data or fan PII is stored.
 
 These choices keep the state transitions easy to inspect while preserving boundaries that can be replaced later.
@@ -164,3 +175,4 @@ These choices keep the state transitions easy to inspect while preserving bounda
 - Deliver structured events to an analytics pipeline and trace continuity across devices.
 - Add durable cleanup for expired sessions and retention policies for completed sessions.
 - Add accessibility, browser, failure-injection, and end-to-end coverage for the web and mobile surfaces.
+- Configure signed universal/app links and native lifecycle integration for a production mobile client.
