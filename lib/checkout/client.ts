@@ -1,9 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CheckoutView, Surface } from "./types";
+import type { AnalyticsSnapshot, CheckoutView, Surface } from "./types";
 
 export const checkoutQueryKey = (token: string) => ["checkout-session", token] as const;
+export const checkoutAnalyticsQueryKey = (token: string) =>
+  ["checkout-analytics", token] as const;
 
 interface ErrorBody {
   error?: { code?: string; message?: string };
@@ -45,6 +47,34 @@ async function readCheckoutResponse(response: Response) {
   return body as CheckoutView;
 }
 
+async function readAnalyticsResponse(response: Response) {
+  const body = (await response.json()) as AnalyticsSnapshot | ErrorBody;
+  if (!response.ok) {
+    const error = (body as ErrorBody).error;
+    throw new CheckoutClientError(
+      error?.message ?? "Analytics could not be loaded.",
+      response.status,
+      error?.code,
+    );
+  }
+  return body as AnalyticsSnapshot;
+}
+
+export function useCheckoutAnalytics(token: string, isEnabled: boolean) {
+  return useQuery({
+    queryKey: checkoutAnalyticsQueryKey(token),
+    queryFn: async () =>
+      readAnalyticsResponse(
+        await fetch(`/api/demo/checkout-sessions/${token}/analytics`, {
+          cache: "no-store",
+        }),
+      ),
+    enabled: isEnabled,
+    refetchInterval: isEnabled ? 4000 : false,
+    retry: false,
+  });
+}
+
 export function useCheckoutSession(
   token: string,
   initialData: CheckoutView,
@@ -80,7 +110,10 @@ export function useAcceptPrice(token: string, surface: Surface) {
           body: JSON.stringify({ priceVersion, surface }),
         }),
       ),
-    onSuccess: (session) => queryClient.setQueryData(checkoutQueryKey(token), session),
+    onSuccess: async (session) => {
+      queryClient.setQueryData(checkoutQueryKey(token), session);
+      await queryClient.invalidateQueries({ queryKey: checkoutAnalyticsQueryKey(token) });
+    },
   });
 }
 
@@ -98,7 +131,10 @@ export function useCompleteCheckout(token: string, surface: Surface) {
           body: JSON.stringify({ surface }),
         }),
       ),
-    onSuccess: (session) => queryClient.setQueryData(checkoutQueryKey(token), session),
+    onSuccess: async (session) => {
+      queryClient.setQueryData(checkoutQueryKey(token), session);
+      await queryClient.invalidateQueries({ queryKey: checkoutAnalyticsQueryKey(token) });
+    },
   });
 }
 
@@ -113,7 +149,10 @@ export function useChangePrice(token: string) {
           body: JSON.stringify({ delta }),
         }),
       ),
-    onSuccess: (session) => queryClient.setQueryData(checkoutQueryKey(token), session),
+    onSuccess: async (session) => {
+      queryClient.setQueryData(checkoutQueryKey(token), session);
+      await queryClient.invalidateQueries({ queryKey: checkoutAnalyticsQueryKey(token) });
+    },
   });
 }
 
@@ -124,6 +163,9 @@ export function useExpireCheckout(token: string) {
       readCheckoutResponse(
         await fetch(`/api/demo/checkout-sessions/${token}/expire`, { method: "POST" }),
       ),
-    onSuccess: (session) => queryClient.setQueryData(checkoutQueryKey(token), session),
+    onSuccess: async (session) => {
+      queryClient.setQueryData(checkoutQueryKey(token), session);
+      await queryClient.invalidateQueries({ queryKey: checkoutAnalyticsQueryKey(token) });
+    },
   });
 }
