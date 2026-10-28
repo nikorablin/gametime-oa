@@ -6,19 +6,23 @@ import { useRef, useState } from "react";
 import { useCountdown } from "@/hooks/use-countdown";
 import { useAcceptPrice, useCompleteCheckout } from "@/lib/checkout/client";
 import { formatTime } from "@/lib/checkout/format";
-import type { CheckoutView } from "@/lib/checkout/types";
+import type { CheckoutView, Surface } from "@/lib/checkout/types";
 
 export function CheckoutActions({
   token,
   session,
+  surface = "web",
+  showMobileLink = surface === "web",
 }: {
   token: string;
   session: CheckoutView;
+  surface?: Surface;
+  showMobileLink?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const idempotencyKey = useRef<string | null>(null);
-  const acceptPrice = useAcceptPrice(token);
-  const completeCheckout = useCompleteCheckout(token);
+  const acceptPrice = useAcceptPrice(token, surface);
+  const completeCheckout = useCompleteCheckout(token, surface);
   const isWorking = acceptPrice.isPending || completeCheckout.isPending;
   const error = acceptPrice.error ?? completeCheckout.error;
   const remaining = useCountdown(
@@ -79,7 +83,8 @@ export function CheckoutActions({
         </Button>
       )}
 
-      {(session.status === "ACTIVE" || session.status === "PRICE_CONFIRMATION_REQUIRED") && (
+      {showMobileLink &&
+        (session.status === "ACTIVE" || session.status === "PRICE_CONFIRMATION_REQUIRED") && (
         <Button variant="outline" fullWidth onPress={copyMobileLink}>
           {copied ? <Check aria-hidden="true" className="size-4" /> : <Copy aria-hidden="true" className="size-4" />}
           {copied ? "Mobile link copied" : "Copy mobile resume link"}

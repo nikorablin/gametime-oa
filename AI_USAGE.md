@@ -68,6 +68,10 @@ After the query refactor, I reviewed the remaining `useEffect` and confirmed tha
 
 I noticed that session creation still used native `fetch` directly even after other checkout commands moved behind TanStack Query. I asked whether that inconsistency was justified. Although creation does not have an existing cache entry to update, I chose to model it as a query mutation so response parsing, typed errors, pending state, and retry policy remain centralized. The button now owns only user interaction and navigation to the returned resume token.
 
+### Preserving one session across distinct surfaces
+
+The mobile slice followed the earlier planning decision to build a responsive app-like deep-link route rather than a second state implementation. The assistant made the shared query and mutation hooks surface-aware while keeping their cache key tied only to the resume token. I retained separate web and mobile layouts and recovery language, but required both to reconcile through the same backend snapshot. Reviewer controls were added as an explicit prototype affordance so state changes can be demonstrated without hiding them in scripts or developer tools.
+
 ## What the assistant has contributed
 
 The assistant has helped with:

@@ -45,6 +45,32 @@ describe("checkout session API", () => {
     const mobileSession = (await resumed.json()) as CheckoutView;
     expect(mobileSession.id).toBe(session.id);
     expect(mobileSession.links.mobile).toContain(token);
+
+    const analyticsResponse = await api.getAnalytics(token);
+    const analytics = (await analyticsResponse.json()) as {
+      events: Array<{ name: string; surface: string }>;
+    };
+    expect(analytics.events).toContainEqual(
+      expect.objectContaining({ name: "SESSION_RESUMED", surface: "mobile" }),
+    );
+  });
+
+  it("does not record background polls as fan resumes", async () => {
+    const { token } = await create();
+    await api.resumeSession(
+      new Request(
+        `${origin}/api/checkout-sessions/${token}?surface=mobile&poll=true`,
+      ),
+      token,
+    );
+
+    const response = await api.getAnalytics(token);
+    const analytics = (await response.json()) as {
+      events: Array<{ name: string }>;
+    };
+    expect(
+      analytics.events.filter((event) => event.name === "SESSION_RESUMED"),
+    ).toHaveLength(0);
   });
 
   it("returns a stable validation error envelope", async () => {
