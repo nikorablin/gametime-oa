@@ -52,6 +52,10 @@ I questioned `resetStoreForTests()` because it exposed a production function sol
 
 I required the README to evolve with every PR rather than being written only at the end. It tracks what is currently implemented, how to run it, the state model, cross-surface behavior, failure handling, tradeoffs, and future production work.
 
+### Choosing a UI library deliberately
+
+Before starting the web checkout, I chose HeroUI v3 to reduce time spent building standard accessible controls and Lucide React for a consistent icon set. I asked for these dependencies to be isolated in their own PR so the library choices and package impact could be reviewed separately from page implementation. The assistant checked the current official installation guidance against the repository's React and Tailwind versions, confirmed that Lucide supports named tree-shakable React imports, then limited the change to the required packages, stylesheet setup, and documentation. This keeps the next UI diff focused on product behavior rather than dependency churn.
+
 ## What the assistant has contributed
 
 The assistant has helped with:
