@@ -55,6 +55,16 @@ export interface AnalyticsEvent {
   details?: Record<string, string | number | boolean>;
 }
 
+export interface AnalyticsSnapshot {
+  events: AnalyticsEvent[];
+  summary: {
+    sessionsCreated: number;
+    completed: number;
+    expired: number;
+    crossSurface: number;
+  };
+}
+
 export interface CheckoutView {
   id: string;
   listing: CheckoutSession["listingSnapshot"] & {

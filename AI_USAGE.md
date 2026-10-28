@@ -72,6 +72,14 @@ I noticed that session creation still used native `fetch` directly even after ot
 
 The mobile slice followed the earlier planning decision to build a responsive app-like deep-link route rather than a second state implementation. The assistant made the shared query and mutation hooks surface-aware while keeping their cache key tied only to the resume token. I retained separate web and mobile layouts and recovery language, but required both to reconcile through the same backend snapshot. Reviewer controls were added as an explicit prototype affordance so state changes can be demonstrated without hiding them in scripts or developer tools.
 
+### Testing the performance claim instead of assuming it
+
+The first JavaScript-disabled Playwright scenario showed that Next.js partial prerendering leaves a no-JavaScript browser on the static loading shell while request-time content is streamed for the client runtime. The original shell was visually stable but lacked useful context. Rather than weakening the assertion, I used the failing test to improve the product: the shell now includes the event, date, venue, and selected seats while the authoritative price and hold state load. The test targets that shell explicitly, and standard browser scenarios verify the streamed session and hydrated interactions.
+
+### Treating generated dependencies as reviewable code
+
+The final audit exposed advisories in the pinned Vitest toolchain. The assistant traced them to development-only transitive packages, but I did not accept that as a reason to leave critical findings unresolved. The test runner and Node types were upgraded to compatible fixed versions, followed by another complete unit, browser, type, lint, build, and audit pass.
+
 ## What the assistant has contributed
 
 The assistant has helped with:

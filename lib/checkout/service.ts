@@ -3,6 +3,7 @@ import { getStore, type CheckoutStore } from "./store";
 import {
   CheckoutError,
   type AnalyticsEvent,
+  type AnalyticsSnapshot,
   type CheckoutSession,
   type CheckoutView,
   type Surface,
@@ -157,7 +158,7 @@ export class CheckoutService {
     return this.toView(session);
   }
 
-  analytics(token: string) {
+  analytics(token: string): AnalyticsSnapshot {
     const session = this.requireSession(token);
     const events = this.store.events.filter((event) => event.sessionId === session.id);
     const allSessions = [...this.store.sessions.values()];

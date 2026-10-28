@@ -20,6 +20,13 @@ npm install
 npm test
 ```
 
+Install the E2E browser once, then run the full browser suite:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
 Start the API locally:
 
 ```bash
@@ -42,6 +49,7 @@ Other verification commands:
 npm run lint
 npx tsc --noEmit
 npm run build
+npm audit
 ```
 
 ## What is built
@@ -57,10 +65,12 @@ npm run build
 - A fan-facing event page and request-time server-rendered web checkout.
 - A request-time `/m/checkout/{resumeToken}` route with an app-like mobile layout and sticky recovery actions.
 - Collapsible prototype controls for simulating a price increase or inventory expiration.
+- A live token-redacted session timeline and aggregate continuity summary in the reviewer drawer.
 - Explicit active, repricing, expired, completed, and invalid-link checkout views.
 - An in-memory TanStack Query client cache for polling and mutations after hydration.
 - Deterministic unit tests using an injected clock.
 - Handler-level contract tests for validation, errors, caching, and cross-surface behavior.
+- Playwright coverage for static-shell rendering, cross-surface repricing, expiration, concurrency, completion, and invalid links.
 
 The domain implementation is centered in `lib/checkout/service.ts`. Route Handlers under `app/api` are deliberately thin: they validate HTTP input and delegate state decisions to the service.
 
@@ -71,6 +81,21 @@ The prototype uses HeroUI v3 as its component library and Lucide React for icons
 HeroUI was chosen to speed up construction of accessible, consistent checkout controls while leaving page composition and checkout-specific interaction design in the application. Lucide supplies a consistent SVG icon set and supports named, tree-shakable imports. UI code imports individual icons, treats decorative icons as hidden from assistive technology, and gives meaningful standalone icons accessible labels.
 
 TanStack Query owns client-side server-state synchronization after hydration. The request-time Server Component still reads the checkout service directly and passes its snapshot as `initialData`, so event, seat, price, expiration, and recovery context are present in HTML before JavaScript runs. The query polls only while a session is actionable, and typed mutations centralize creation, price acceptance, and completion behavior. Creation navigates to the newly returned token without caching it under the selected listing.
+
+With partial prerendering enabled, the checkout route immediately serves a static shell containing the event, date, venue, and selected seats. The authoritative price, hold deadline, and state stream at request time before the interactive controls hydrate.
+
+## Observability
+
+The reviewer drawer reads the token-redacted analytics endpoint only while expanded. It displays the current session event timeline and aggregate counts for sessions created, cross-surface resumes, completions, and expirations. Background polls are excluded from resume events so the cross-surface metric reflects fan navigation rather than implementation traffic.
+
+In production, these events would be delivered to an analytics pipeline and joined through an internal checkout-session identifier. The resume token must never be included in telemetry.
+
+## Testing
+
+- Vitest exercises exact expiration boundaries, stale price acknowledgement, terminal states, and concurrent completion at the service layer.
+- API contract tests cover request validation, response caching, surface attribution, polling semantics, repricing, expiration, and token-redacted analytics.
+- Playwright verifies meaningful static HTML without JavaScript, web-to-mobile resume, cross-surface repricing and completion, platform-specific expiration recovery, simultaneous completion, semantic control names, and invalid-link recovery.
+- Browser tests run serially because the prototype intentionally uses one process-local backend.
 
 ## API
 
@@ -161,6 +186,7 @@ Completion is serialized per session. The first valid request creates an order a
 - UI libraries add bundle and design-system coupling; checkout pages should use named HeroUI and Lucide imports and keep domain behavior outside presentation components.
 - TanStack Query is an in-memory presentation cache, not checkout authority. It is not persisted, and every mutation is revalidated by the backend.
 - The mobile experience is a responsive web simulation of an app deep link, not a native application or operating-system universal-link integration.
+- Analytics are process-local demonstration data, not durable telemetry, and aggregate counts reset with the server.
 - No payment data or fan PII is stored.
 
 These choices keep the state transitions easy to inspect while preserving boundaries that can be replaced later.
@@ -174,5 +200,5 @@ These choices keep the state transitions easy to inspect while preserving bounda
 - Protect resume links with authenticated fan access or short-lived signed capabilities.
 - Deliver structured events to an analytics pipeline and trace continuity across devices.
 - Add durable cleanup for expired sessions and retention policies for completed sessions.
-- Add accessibility, browser, failure-injection, and end-to-end coverage for the web and mobile surfaces.
+- Expand browser coverage beyond Chromium, add a full automated accessibility audit, and inject network/provider failures.
 - Configure signed universal/app links and native lifecycle integration for a production mobile client.
