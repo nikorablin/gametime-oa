@@ -1,49 +1,29 @@
 # Gametime Checkout Continuity
 
-A proof-of-concept for carrying a time-sensitive ticket checkout across web and mobile without creating duplicate orders, accepting stale prices, or treating an expired hold like a normal saved cart.
+A proof of concept for resuming a time-sensitive ticket checkout across web and mobile without creating duplicate orders, accepting stale prices, or treating an expired hold like a saved cart.
 
-This branch contains the checkout session domain model, HTTP API, event listing, server-rendered web checkout, and an app-like mobile deep-link surface backed by the same session.
-
-See [AI_USAGE.md](./AI_USAGE.md) for how AI is being used as part of the planning, implementation, and review process.
+See [AI_USAGE.md](./AI_USAGE.md) for a short explanation of how I used AI while building it.
 
 ## Run locally
 
-Requirements:
-
-- Node.js 20 or newer
-- npm
-
-Install dependencies and run the current test suite:
+Requires Node.js 20+ and npm.
 
 ```bash
 npm install
-npm test
-```
-
-Install the E2E browser once, then run the full browser suite:
-
-```bash
-npx playwright install chromium
-npm run test:e2e
-```
-
-Start the API locally:
-
-```bash
 npm run dev
 ```
 
-The server is available at [http://localhost:3000](http://localhost:3000). Open the home page, choose the seeded listing, and continue to create a ten-minute checkout session.
+Open [http://localhost:3000](http://localhost:3000), select the seeded listing, and start checkout.
 
-To demonstrate continuity:
+For browser tests, install Chromium once:
 
-1. Start checkout on the web route.
-2. Copy the mobile resume link and open it in a second window or narrow viewport.
-3. Expand **Prototype controls** on either surface and raise the price or expire inventory.
-4. Watch the other surface reconcile to the same state through background polling.
-5. Complete on either surface; both converge on the same order.
+```bash
+npx playwright install chromium
+npm test
+npm run test:e2e
+```
 
-Other verification commands:
+Additional checks:
 
 ```bash
 npm run lint
@@ -52,153 +32,89 @@ npm run build
 npm audit
 ```
 
-## What is built
+## Demo flow
 
-- A backend-owned checkout session with a high-entropy resume token.
-- A ten-minute inventory-hold deadline.
-- Versioned price snapshots and explicit price acceptance.
-- Terminal expiration and completion behavior.
-- Serialized, idempotent completion so competing devices resolve to one order.
-- In-memory analytics events for important checkout transitions.
-- JSON endpoints for creation, resume, price acceptance, and completion.
-- Prototype-only endpoints for forcing price and expiration scenarios.
-- A fan-facing event page and request-time server-rendered web checkout.
-- A request-time `/m/checkout/{resumeToken}` route with an app-like mobile layout and sticky recovery actions.
-- Collapsible prototype controls for simulating a price increase or inventory expiration.
-- A live token-redacted session timeline and aggregate continuity summary in the reviewer drawer.
-- Explicit active, repricing, expired, completed, and invalid-link checkout views.
-- An in-memory TanStack Query client cache for polling and mutations after hydration.
-- Deterministic unit tests using an injected clock.
-- Handler-level contract tests for validation, errors, caching, and cross-surface behavior.
-- Playwright coverage for static-shell rendering, cross-surface repricing, expiration, concurrency, completion, and invalid links.
+1. Start checkout on web.
+2. Copy the mobile resume link and open it in another window or narrow viewport.
+3. Use **Prototype controls** to raise the price or expire the inventory hold.
+4. See both surfaces reconcile to the same backend state.
+5. Complete on either surface; both resolve to the same order.
+6. Expand **Reviewer tools** to inspect the token-redacted event timeline and summary metrics.
 
-The domain implementation is centered in `lib/checkout/service.ts`. Route Handlers under `app/api` are deliberately thin: they validate HTTP input and delegate state decisions to the service.
+## Design
 
-## UI foundation
+The backend owns the selected listing, accepted price version, inventory expiration, current state, completed order ID, idempotency, and analytics events. Clients only hold presentation state and a TanStack Query cache; they never decide whether a price, hold, or completion is valid.
 
-The prototype uses HeroUI v3 as its component library and Lucide React for icons. This repository already met HeroUI's React 19 and Tailwind CSS 4 requirements, so setup consists of `@heroui/react`, `@heroui/styles`, and the HeroUI stylesheet imported after Tailwind in `app/globals.css`. HeroUI v3 does not require an application provider.
-
-HeroUI was chosen to speed up construction of accessible, consistent checkout controls while leaving page composition and checkout-specific interaction design in the application. Lucide supplies a consistent SVG icon set and supports named, tree-shakable imports. UI code imports individual icons, treats decorative icons as hidden from assistive technology, and gives meaningful standalone icons accessible labels.
-
-TanStack Query owns client-side server-state synchronization after hydration. The request-time Server Component still reads the checkout service directly and passes its snapshot as `initialData`, so event, seat, price, expiration, and recovery context are present in HTML before JavaScript runs. The query polls only while a session is actionable, and typed mutations centralize creation, price acceptance, and completion behavior. Creation navigates to the newly returned token without caching it under the selected listing.
-
-With partial prerendering enabled, the checkout route immediately serves a static shell containing the event, date, venue, and selected seats. The authoritative price, hold deadline, and state stream at request time before the interactive controls hydrate.
-
-## Observability
-
-The reviewer drawer reads the token-redacted analytics endpoint only while expanded. It displays the current session event timeline and aggregate counts for sessions created, cross-surface resumes, completions, and expirations. Background polls are excluded from resume events so the cross-surface metric reflects fan navigation rather than implementation traffic.
-
-In production, these events would be delivered to an analytics pipeline and joined through an internal checkout-session identifier. The resume token must never be included in telemetry.
-
-## Testing
-
-- Vitest exercises exact expiration boundaries, stale price acknowledgement, terminal states, and concurrent completion at the service layer.
-- API contract tests cover request validation, response caching, surface attribution, polling semantics, repricing, expiration, and token-redacted analytics.
-- Playwright verifies meaningful static HTML without JavaScript, web-to-mobile resume, cross-surface repricing and completion, platform-specific expiration recovery, simultaneous completion, semantic control names, and invalid-link recovery.
-- Browser tests run serially because the prototype intentionally uses one process-local backend.
-
-## API
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/checkout-sessions` | Create a session for a listing. |
-| `GET` | `/api/checkout-sessions/{resumeToken}?surface=web\|mobile` | Resume the authoritative session snapshot. |
-| `POST` | `/api/checkout-sessions/{resumeToken}/price-acceptance` | Accept an exact pending price version. |
-| `POST` | `/api/checkout-sessions/{resumeToken}/complete` | Complete once; requires an `Idempotency-Key` header. |
-| `POST` | `/api/demo/checkout-sessions/{resumeToken}/price` | Prototype only: change the listing price. |
-| `POST` | `/api/demo/checkout-sessions/{resumeToken}/expire` | Prototype only: expire the hold. |
-| `GET` | `/api/demo/checkout-sessions/{resumeToken}/analytics` | Prototype only: inspect token-redacted events and summary counts. |
-
-Create a session for the seeded listing:
-
-```bash
-curl --request POST http://localhost:3000/api/checkout-sessions \
-  --header 'Content-Type: application/json' \
-  --data '{"listingId":"knicks-celtics-101","surface":"web"}'
-```
-
-All responses use `Cache-Control: no-store`. Expected domain failures use a stable envelope:
-
-```json
-{
-  "error": {
-    "code": "PRICE_CONFIRMATION_REQUIRED",
-    "message": "Accept the latest price before completing checkout."
-  }
-}
-```
-
-## Checkout session state model
-
-```text
-                         live price changes
-ACTIVE ------------------------------------------------> PRICE_CONFIRMATION_REQUIRED
-  |                                                               |
-  | complete                                                      | accept exact price version
-  v                                                               v
-COMPLETED                                                       ACTIVE
-
-ACTIVE -----------------------------> EXPIRED
-PRICE_CONFIRMATION_REQUIRED ---------> EXPIRED
-                 hold deadline reached
-```
-
-- `ACTIVE`: The hold is valid and the accepted price matches the current listing price.
-- `PRICE_CONFIRMATION_REQUIRED`: The live price version changed. Completion is blocked until the fan accepts that exact version.
-- `EXPIRED`: The inventory deadline has passed. This state is terminal.
-- `COMPLETED`: One order was created. Later completion attempts return the same order.
-
-The backend evaluates expiration and pricing on every read or mutation. Client countdowns will be presentational only.
-
-## Cross-surface resume
-
-Creating a session produces web and mobile paths containing the same opaque resume token. Both clients call the resume endpoint with that token and identify their surface; they never copy checkout state between devices:
+Web and mobile resume the same backend session with one opaque token:
 
 ```text
 /checkout/{resumeToken}
 /m/checkout/{resumeToken}
 ```
 
-The token is deliberately separate from the internal session ID. Analytics events use the internal ID so the bearer credential is not logged. Web and mobile read the same token-keyed query and backend snapshot, while requests retain their `web` or `mobile` surface for instrumentation. Background polls are not counted as fan resumes.
+The routes provide surface-specific layouts and recovery messages. The web route uses partial prerendering: event and seat context appears in the static shell, while authoritative price and expiration data streams at request time.
 
-## Stale inventory, price changes, and duplicate completion
+## State model
 
-### Stale inventory
+```text
+ACTIVE ── price changes ──> PRICE_CONFIRMATION_REQUIRED
+  │                                │
+  │ complete                       │ accept exact version
+  ▼                                ▼
+COMPLETED                         ACTIVE
 
-The backend owns `expiresAt`. At the exact deadline, the session moves to `EXPIRED`; accepting a price or completing the session is then rejected. Reading an expired session still returns a renderable snapshot so a surface can explain what happened and offer recovery.
+ACTIVE / PRICE_CONFIRMATION_REQUIRED ── hold expires ──> EXPIRED
+```
 
-### Price changes
+- **ACTIVE:** The hold and accepted price are current.
+- **PRICE_CONFIRMATION_REQUIRED:** Checkout is blocked until the fan accepts the latest exact price version.
+- **EXPIRED:** The hold is invalid; the UI explains what happened and offers recovery.
+- **COMPLETED:** One order exists; retries and competing devices receive that same order.
 
-The session retains the last accepted unit price and price version. If the pricing stub reports another version, the session moves to `PRICE_CONFIRMATION_REQUIRED` and exposes both the quoted and pending totals. Acceptance must include the pending version, preventing a fan from unknowingly accepting a price that changed again. Accepting a new price does not extend the inventory hold.
+The backend reevaluates price and expiration on every read and mutation. Client countdowns are informational only.
 
-### Duplicate completion
+## Important failure handling
 
-Completion is serialized per session. The first valid request creates an order and moves the session to `COMPLETED`. Concurrent or retried requests receive the existing order ID, even when they use different idempotency keys. Only one `ORDER_COMPLETED` event is emitted.
+- **Stale inventory:** `expiresAt` is backend-owned. Expiration is terminal, but the session remains readable for a useful recovery state.
+- **Price changes:** The fan sees the previous and new totals. Acceptance includes the pending price version, so a second change cannot be accepted accidentally.
+- **Duplicate completion:** Completion is serialized per session. Concurrent or retried requests return one order ID and emit one completion event.
+
+## API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/checkout-sessions` | Create a session. |
+| `GET` | `/api/checkout-sessions/{token}?surface=web\|mobile` | Resume a session. |
+| `POST` | `/api/checkout-sessions/{token}/price-acceptance` | Accept an exact price version. |
+| `POST` | `/api/checkout-sessions/{token}/complete` | Complete idempotently. |
+| `POST` | `/api/demo/checkout-sessions/{token}/price` | Demo a price change. |
+| `POST` | `/api/demo/checkout-sessions/{token}/expire` | Demo expiration. |
+| `GET` | `/api/demo/checkout-sessions/{token}/analytics` | Inspect demo analytics. |
+
+All responses use `Cache-Control: no-store`. Route handlers validate HTTP input and delegate state transitions to `lib/checkout/service.ts`.
+
+## Testing
+
+- Vitest covers expiration boundaries, price acceptance, terminal states, and concurrent completion.
+- API tests cover validation, cache headers, surface attribution, and token-redacted analytics.
+- Playwright covers no-JavaScript shell content, web-to-mobile resume, repricing, expiration, concurrent completion, and invalid links.
 
 ## Tradeoffs
 
-- Sessions, listings, locks, orders, and analytics events live in process memory. They reset on restart and are not shared across server instances.
-- The resume token acts as a scoped bearer credential because authentication is outside this prototype's scope.
-- Inventory, pricing, payment, and analytics are represented by local behavior rather than external integrations.
-- Expiration is reconciled lazily when a session is accessed; there is no background cleanup worker.
-- The current lock is suitable only for one Node.js process.
-- Route Handlers are public and the demo mutation endpoints have no production-grade authorization or environment gate.
-- UI libraries add bundle and design-system coupling; checkout pages should use named HeroUI and Lucide imports and keep domain behavior outside presentation components.
-- TanStack Query is an in-memory presentation cache, not checkout authority. It is not persisted, and every mutation is revalidated by the backend.
-- The mobile experience is a responsive web simulation of an app deep link, not a native application or operating-system universal-link integration.
-- Analytics are process-local demonstration data, not durable telemetry, and aggregate counts reset with the server.
-- No payment data or fan PII is stored.
+- Storage, locking, orders, and analytics are process-local and reset on restart.
+- The resume token is a bearer credential because authentication is outside the prototype scope.
+- Inventory, pricing, payment, and analytics providers are stubbed behind local interfaces.
+- Expiration is reconciled on access rather than by a background worker.
+- The mobile route simulates an app deep link; it is not a native app or universal-link integration.
+- Demo mutation endpoints are visible and are not production-authorized.
 
-These choices keep the state transitions easy to inspect while preserving boundaries that can be replaced later.
+These choices keep the state transitions easy to review while preserving boundaries that production services could replace.
 
 ## With more time
 
-- Store sessions and idempotency records in a transactional database or shared low-latency store.
-- Use conditional writes or distributed locking to guarantee one order across server instances.
-- Integrate an inventory provider that owns the actual hold and returns authoritative expiration.
-- Integrate payment authorization with pending, webhook, failure, and reconciliation states.
-- Protect resume links with authenticated fan access or short-lived signed capabilities.
-- Deliver structured events to an analytics pipeline and trace continuity across devices.
-- Add durable cleanup for expired sessions and retention policies for completed sessions.
-- Expand browser coverage beyond Chromium, add a full automated accessibility audit, and inject network/provider failures.
-- Configure signed universal/app links and native lifecycle integration for a production mobile client.
+- Persist sessions and idempotency records in a transactional shared store.
+- Use conditional writes or distributed locking across server instances.
+- Integrate real inventory holds and payment authorization, including pending and webhook-driven outcomes.
+- Protect resume links with authenticated access or short-lived signed capabilities.
+- Send structured, token-free events to a durable analytics pipeline.
+- Add native universal links, broader browser coverage, accessibility automation, and provider-failure scenarios.
