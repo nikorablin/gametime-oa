@@ -51,6 +51,12 @@ npm run build
 
 The domain implementation is centered in `lib/checkout/service.ts`. Route Handlers under `app/api` are deliberately thin: they validate HTTP input and delegate state decisions to the service.
 
+## UI foundation
+
+The prototype uses HeroUI v3 as its component library. This repository already met HeroUI's React 19 and Tailwind CSS 4 requirements, so setup consists of `@heroui/react`, `@heroui/styles`, and the HeroUI stylesheet imported after Tailwind in `app/globals.css`. HeroUI v3 does not require an application provider.
+
+HeroUI was chosen to speed up construction of accessible, consistent checkout controls while leaving page composition and checkout-specific interaction design in the application. This PR installs and configures the library only; component adoption begins with the web checkout PR.
+
 ## API
 
 | Method | Path | Purpose |
@@ -137,6 +143,7 @@ Completion is serialized per session. The first valid request creates an order a
 - Expiration is reconciled lazily when a session is accessed; there is no background cleanup worker.
 - The current lock is suitable only for one Node.js process.
 - Route Handlers are public and the demo mutation endpoints have no production-grade authorization or environment gate.
+- Using a component library adds bundle and design-system coupling; checkout pages should import only the HeroUI components they use and keep domain behavior outside UI components.
 - No payment data or fan PII is stored.
 
 These choices keep the state transitions easy to inspect while preserving boundaries that can be replaced later.
