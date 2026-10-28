@@ -22,6 +22,16 @@ I used an AI coding assistant as a collaborative engineering tool, not as a one-
 - I used a failing no-JavaScript E2E test to improve the partial-prerender shell rather than weakening the performance assertion.
 - I required dependency audit findings to be resolved even though they were limited to development tooling.
 
+## Validation
+
+I reviewed AI-assisted changes incrementally and validated them with:
+
+- Unit and API contract tests.
+- Playwright end-to-end scenarios.
+- TypeScript type checking and ESLint.
+- Production builds and dependency audits.
+- Manual review of each PR before continuing.
+
 ## Guardrails
 
 - The backend remains authoritative for price, expiration, and completion.
