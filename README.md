@@ -2,7 +2,7 @@
 
 A proof-of-concept for carrying a time-sensitive ticket checkout across web and mobile without creating duplicate orders, accepting stale prices, or treating an expired hold like a normal saved cart.
 
-This branch contains the checkout session domain model, its in-memory implementation, and the HTTP API used by future web and mobile surfaces. Fan-facing checkout screens will be added in subsequent PRs.
+This branch contains the checkout session domain model, HTTP API, event listing, and server-rendered web checkout. A dedicated mobile deep-link surface will be added in a subsequent PR.
 
 See [AI_USAGE.md](./AI_USAGE.md) for how AI is being used as part of the planning, implementation, and review process.
 
@@ -26,7 +26,7 @@ Start the API locally:
 npm run dev
 ```
 
-The server is available at [http://localhost:3000](http://localhost:3000). The home page is still the generated starter; the checkout API is available under `/api/checkout-sessions`.
+The server is available at [http://localhost:3000](http://localhost:3000). Open the home page, choose the seeded listing, and continue to create a ten-minute checkout session.
 
 Other verification commands:
 
@@ -46,6 +46,9 @@ npm run build
 - In-memory analytics events for important checkout transitions.
 - JSON endpoints for creation, resume, price acceptance, and completion.
 - Prototype-only endpoints for forcing price and expiration scenarios.
+- A fan-facing event page and request-time server-rendered web checkout.
+- Explicit active, repricing, expired, completed, and invalid-link checkout views.
+- An in-memory TanStack Query client cache for polling and mutations after hydration.
 - Deterministic unit tests using an injected clock.
 - Handler-level contract tests for validation, errors, caching, and cross-surface behavior.
 
@@ -55,7 +58,9 @@ The domain implementation is centered in `lib/checkout/service.ts`. Route Handle
 
 The prototype uses HeroUI v3 as its component library and Lucide React for icons. This repository already met HeroUI's React 19 and Tailwind CSS 4 requirements, so setup consists of `@heroui/react`, `@heroui/styles`, and the HeroUI stylesheet imported after Tailwind in `app/globals.css`. HeroUI v3 does not require an application provider.
 
-HeroUI was chosen to speed up construction of accessible, consistent checkout controls while leaving page composition and checkout-specific interaction design in the application. Lucide supplies a consistent SVG icon set and supports named, tree-shakable imports. UI code should import individual icons, treat decorative icons as hidden from assistive technology, and give meaningful standalone icons accessible labels. This PR installs and configures the libraries only; component adoption begins with the web checkout PR.
+HeroUI was chosen to speed up construction of accessible, consistent checkout controls while leaving page composition and checkout-specific interaction design in the application. Lucide supplies a consistent SVG icon set and supports named, tree-shakable imports. UI code imports individual icons, treats decorative icons as hidden from assistive technology, and gives meaningful standalone icons accessible labels.
+
+TanStack Query owns client-side server-state synchronization after hydration. The request-time Server Component still reads the checkout service directly and passes its snapshot as `initialData`, so event, seat, price, expiration, and recovery context are present in HTML before JavaScript runs. The query polls only while a session is actionable and mutations replace the cached snapshot with the backend response.
 
 ## API
 
@@ -119,7 +124,7 @@ Creating a session produces web and mobile paths containing the same opaque resu
 /m/checkout/{resumeToken}
 ```
 
-The token is deliberately separate from the internal session ID. Analytics events use the internal ID so the bearer credential is not logged. The browser routes shown above are planned for subsequent PRs, while the shared resume API is implemented now.
+The token is deliberately separate from the internal session ID. Analytics events use the internal ID so the bearer credential is not logged. The web route is implemented now; the app-like mobile route remains a subsequent PR.
 
 ## Stale inventory, price changes, and duplicate completion
 
@@ -144,6 +149,7 @@ Completion is serialized per session. The first valid request creates an order a
 - The current lock is suitable only for one Node.js process.
 - Route Handlers are public and the demo mutation endpoints have no production-grade authorization or environment gate.
 - UI libraries add bundle and design-system coupling; checkout pages should use named HeroUI and Lucide imports and keep domain behavior outside presentation components.
+- TanStack Query is an in-memory presentation cache, not checkout authority. It is not persisted, and every mutation is revalidated by the backend.
 - No payment data or fan PII is stored.
 
 These choices keep the state transitions easy to inspect while preserving boundaries that can be replaced later.
