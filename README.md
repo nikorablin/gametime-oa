@@ -2,7 +2,9 @@
 
 A proof-of-concept for carrying a time-sensitive ticket checkout across web and mobile without creating duplicate orders, accepting stale prices, or treating an expired hold like a normal saved cart.
 
-This branch contains the checkout session domain model and its in-memory implementation. HTTP endpoints and fan-facing web/mobile surfaces will be added in subsequent PRs.
+This branch contains the checkout session domain model, its in-memory implementation, and the HTTP API used by future web and mobile surfaces. Fan-facing checkout screens will be added in subsequent PRs.
+
+See [AI_USAGE.md](./AI_USAGE.md) for how AI is being used as part of the planning, implementation, and review process.
 
 ## Run locally
 
@@ -18,6 +20,14 @@ npm install
 npm test
 ```
 
+Start the API locally:
+
+```bash
+npm run dev
+```
+
+The server is available at [http://localhost:3000](http://localhost:3000). The home page is still the generated starter; the checkout API is available under `/api/checkout-sessions`.
+
 Other verification commands:
 
 ```bash
@@ -25,8 +35,6 @@ npm run lint
 npx tsc --noEmit
 npm run build
 ```
-
-The generated Next.js starter can be run with `npm run dev`, but this branch does not expose the checkout model through the UI yet.
 
 ## What is built
 
@@ -36,9 +44,43 @@ The generated Next.js starter can be run with `npm run dev`, but this branch doe
 - Terminal expiration and completion behavior.
 - Serialized, idempotent completion so competing devices resolve to one order.
 - In-memory analytics events for important checkout transitions.
+- JSON endpoints for creation, resume, price acceptance, and completion.
+- Prototype-only endpoints for forcing price and expiration scenarios.
 - Deterministic unit tests using an injected clock.
+- Handler-level contract tests for validation, errors, caching, and cross-surface behavior.
 
-The implementation is centered in `lib/checkout/service.ts`. The store and seeded listing are in `lib/checkout/store.ts`, and the public domain types are in `lib/checkout/types.ts`.
+The domain implementation is centered in `lib/checkout/service.ts`. Route Handlers under `app/api` are deliberately thin: they validate HTTP input and delegate state decisions to the service.
+
+## API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/checkout-sessions` | Create a session for a listing. |
+| `GET` | `/api/checkout-sessions/{resumeToken}?surface=web\|mobile` | Resume the authoritative session snapshot. |
+| `POST` | `/api/checkout-sessions/{resumeToken}/price-acceptance` | Accept an exact pending price version. |
+| `POST` | `/api/checkout-sessions/{resumeToken}/complete` | Complete once; requires an `Idempotency-Key` header. |
+| `POST` | `/api/demo/checkout-sessions/{resumeToken}/price` | Prototype only: change the listing price. |
+| `POST` | `/api/demo/checkout-sessions/{resumeToken}/expire` | Prototype only: expire the hold. |
+| `GET` | `/api/demo/checkout-sessions/{resumeToken}/analytics` | Prototype only: inspect token-redacted events and summary counts. |
+
+Create a session for the seeded listing:
+
+```bash
+curl --request POST http://localhost:3000/api/checkout-sessions \
+  --header 'Content-Type: application/json' \
+  --data '{"listingId":"knicks-celtics-101","surface":"web"}'
+```
+
+All responses use `Cache-Control: no-store`. Expected domain failures use a stable envelope:
+
+```json
+{
+  "error": {
+    "code": "PRICE_CONFIRMATION_REQUIRED",
+    "message": "Accept the latest price before completing checkout."
+  }
+}
+```
 
 ## Checkout session state model
 
@@ -64,14 +106,14 @@ The backend evaluates expiration and pricing on every read or mutation. Client c
 
 ## Cross-surface resume
 
-Creating a session produces web and mobile paths containing the same opaque resume token. Both surfaces will use that token to load the same backend session rather than copying checkout state between devices:
+Creating a session produces web and mobile paths containing the same opaque resume token. Both clients call the resume endpoint with that token and identify their surface; they never copy checkout state between devices:
 
 ```text
 /checkout/{resumeToken}
 /m/checkout/{resumeToken}
 ```
 
-The token is deliberately separate from the internal session ID. Analytics events use the internal ID so the bearer credential is not logged. The routes themselves are planned for a subsequent PR.
+The token is deliberately separate from the internal session ID. Analytics events use the internal ID so the bearer credential is not logged. The browser routes shown above are planned for subsequent PRs, while the shared resume API is implemented now.
 
 ## Stale inventory, price changes, and duplicate completion
 
@@ -94,6 +136,7 @@ Completion is serialized per session. The first valid request creates an order a
 - Inventory, pricing, payment, and analytics are represented by local behavior rather than external integrations.
 - Expiration is reconciled lazily when a session is accessed; there is no background cleanup worker.
 - The current lock is suitable only for one Node.js process.
+- Route Handlers are public and the demo mutation endpoints have no production-grade authorization or environment gate.
 - No payment data or fan PII is stored.
 
 These choices keep the state transitions easy to inspect while preserving boundaries that can be replaced later.
