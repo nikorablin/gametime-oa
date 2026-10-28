@@ -23,8 +23,10 @@ export function createCheckoutApi(service: CheckoutService) {
 
     async resumeSession(request: Request, token: string) {
       try {
-        const surface = parseSurface(new URL(request.url).searchParams.get("surface"));
-        return Response.json(service.resume(token, surface), {
+        const searchParams = new URL(request.url).searchParams;
+        const surface = parseSurface(searchParams.get("surface"));
+        const recordResume = searchParams.get("poll") !== "true";
+        return Response.json(service.resume(token, surface, recordResume), {
           headers: noStoreHeaders,
         });
       } catch (error) {

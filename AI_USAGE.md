@@ -56,6 +56,18 @@ I required the README to evolve with every PR rather than being written only at 
 
 Before starting the web checkout, I chose HeroUI v3 to reduce time spent building standard accessible controls and Lucide React for a consistent icon set. I asked for these dependencies to be isolated in their own PR so the library choices and package impact could be reviewed separately from page implementation. The assistant checked the current official installation guidance against the repository's React and Tailwind versions, confirmed that Lucide supports named tree-shakable React imports, then limited the change to the required packages, stylesheet setup, and documentation. This keeps the next UI diff focused on product behavior rather than dependency churn.
 
+### Replacing hand-written server-state synchronization
+
+While reviewing the web checkout, I asked whether TanStack Query was a better fit than custom effects for polling and API mutations. The assistant compared the added dependency against the upcoming mobile surface and identified that the first implementation was already recreating polling, loading, error, and invalidation behavior. I chose to adopt TanStack Query now so web and mobile can share a token-keyed server-state layer. We kept the server-rendered snapshot as initial data, disabled broad automatic retries, stopped polling in terminal states, and documented that the client cache never determines checkout validity.
+
+### Making effects explicit
+
+After the query refactor, I reviewed the remaining `useEffect` and confirmed that it existed only to synchronize a visible countdown with wall-clock time. I asked for that external synchronization to be extracted into a named `useCountdown` hook and added a repository rule to avoid effects for derived data, event handling, or API state. This keeps feature components declarative while still allowing effects when an external clock or browser API genuinely requires one.
+
+### Applying the API boundary consistently
+
+I noticed that session creation still used native `fetch` directly even after other checkout commands moved behind TanStack Query. I asked whether that inconsistency was justified. Although creation does not have an existing cache entry to update, I chose to model it as a query mutation so response parsing, typed errors, pending state, and retry policy remain centralized. The button now owns only user interaction and navigation to the returned resume token.
+
 ## What the assistant has contributed
 
 The assistant has helped with:
