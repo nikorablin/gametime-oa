@@ -4,6 +4,10 @@ A proof of concept for resuming a time-sensitive ticket checkout across web and 
 
 See [AI_USAGE.md](./AI_USAGE.md) for a short explanation of how I used AI while building it.
 
+## Demo video
+
+https://github.com/user-attachments/assets/d4196350-8400-4abd-837d-8679f75dd300
+
 ## Run locally
 
 Requires Node.js 20+ and npm.
