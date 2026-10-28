@@ -42,7 +42,3 @@ export function getStore(): CheckoutStore {
 export function getFeaturedListing() {
   return { ...(getStore().listings.get(seedListing.id) ?? seedListing) };
 }
-
-export function resetStoreForTests() {
-  globalThis.__checkoutContinuityStore = createStore();
-}
